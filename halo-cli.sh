@@ -109,7 +109,7 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=java -server -Xms256m -Xmx512m -jar /www/wwwroot/halo/halo-latest.jar
+ExecStart=/usr/lib/jdk1.8.0_192/bin/java -server -Xms256m -Xmx512m -jar /www/wwwroot/halo/halo-latest.jar
 ExecStop=/bin/kill -s QUIT $MAINPID
 Restart=always
 StandOutput=syslog
