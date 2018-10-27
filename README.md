@@ -1,6 +1,6 @@
 ```bash
 # 安装Halo
-yum install -y wget && wget http://static.ryanc.cc/halo-cli.sh && sh halo-cli.sh 1
+yum install -y wget && wget https://raw.githubusercontent.com/ruibaby/halo-cli/master/halo-cli.sh && bash halo-cli.sh -i
 # 更新Halo
-sh halo-cli.sh 2
+bash halo-cli.sh -u
 ```
