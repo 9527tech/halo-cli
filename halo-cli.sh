@@ -136,24 +136,24 @@ EOF
                 exit 1
             fi
         
+        else
+
+            if [[ -d ${HALO_PATH} ]]; then
+                configHalo
+                echo -e "----------------------------------------------------"
+                colorEcho ${GREEN} "Halo安装成功"
+                colorEcho ${GREEN} "由于未找到systemctl命令所以判定为不支持systemd"
+                colorEcho ${GREEN} "使用\"sh /www/wwwroot/halo/bin/halo.sh start\"运行halo"
+                echo -e "----------------------------------------------------"
+            else 
+                echo -e "----------------------------------------------------"
+                colorEcho ${RED} "貌似安装出错了,请手动检测安装目录${HALO_PATH}是否存在Halo"
+                echo -e "----------------------------------------------------"
+                exit 1
+            fi
 
         fi
 
-
-        if [[ -d ${HALO_PATH} ]]; then
-            configHalo
-            echo -e "----------------------------------------------------"
-            colorEcho ${GREEN} "Halo安装成功"
-            colorEcho ${GREEN} "由于未找到systemctl命令所以判定为不支持systemd"
-            colorEcho ${GREEN} "使用\"sh /www/wwwroot/halo/bin/halo.sh start\"运行halo"
-            echo -e "----------------------------------------------------"
-        else 
-            echo -e "----------------------------------------------------"
-            colorEcho ${RED} "貌似安装出错了,请手动检测安装目录${HALO_PATH}是否存在Halo"
-            echo -e "----------------------------------------------------"
-            exit 1
-        fi
-        
     else
         echo -e "----------------------------------------------------"
         colorEcho ${RED} "打包失败"
