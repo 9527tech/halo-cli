@@ -6,9 +6,9 @@ BUILD_PATH="${WORK_PATH}git/halo/"      # halo打包目录
 WWW_PATH="/www/wwwroot/"                # www目录
 HALO_PATH="${WWW_PATH}halo/"            # halo部署目录
 HALO_CONFIG="${HALO_PATH}resources/application.yaml"           
-NGINX_PATH="/usr/local/nginx/"          # nginx安装目录
-NGINX_VERSION="1.14.0"                  # nginx版本
 
+database=1
+port=8090
 
 ####### 颜色代码 ########
 RED="31m"      # Error message
@@ -25,19 +25,59 @@ colorEcho(){
 
 
 useage(){
-    colorEcho ${YELLOW} "使用方法:sh halo-cli.sh [1(安装Halo) | 2(更新Halo) | 3(安装nginx)]"
+    colorEcho ${YELLOW} "使用方法:"
+    colorEcho ${YELLOW} "安装halo: bash halo-cli.sh -i 或 bash halo-cli.sh --install"
+    colorEcho ${YELLOW} "更新halo: bash halo-cli.sh -u 或 bash halo-cli.sh --update"
     exit 1
 }
 
+installGit(){
+    if [[ -n `command -v apt-get` ]];then
+        CMD_INSTALL="apt-get -y install"
+        CMD_UPDATE="apt-get update"
+    elif [[ -n `command -v yum` ]]; then
+        CMD_INSTALL="yum -y install"
+        CMD_UPDATE="yum makecache"
+    else
+        return 1
+    fi
+
+    ${CMD_UPDATE} && ${CMD_INSTALL} git
+}
 
 installHalo(){
     ### 安装halo ###
-    colorEcho ${BLUE} "正在使用yum安装maven,openjdk1.8,git"
-    yum install -y -q git maven java-1.8.0-openjdk  java-1.8.0-openjdk-devel
-    
+
+    installGit
+
     echo -e "----------------------------------------------------"
-    colorEcho ${GREEN} "JDK版本为: `java -version | head -1`"
-    colorEcho ${GREEN} "Maven版本为: `mvn --version | head -1`"
+    colorEcho ${BLUE} "将通过下载官方二进制包的形式安装OpenJDK和Maven"
+    echo -e "----------------------------------------------------"
+
+    if [[ ! -d $WORK_PATH ]];then
+        mkdir ${WORK_PATH}
+    fi
+
+    wget -O ${WORK_PATH}jdk1.8.0_192.tar.gz https://download.java.net/java/jdk8u192/archive/b04/binaries/jdk-8u192-ea-bin-b04-linux-x64-01_aug_2018.tar.gz
+    wget -O ${WORK_PATH}maven-3.5.4-bin.tar.gz https://www-us.apache.org/dist/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
+
+    colorEcho ${BLUE} "解压中------"
+    tar zxf ${WORK_PATH}jdk1.8.0_192.tar.gz -C /usr/lib
+    tar zxf ${WORK_PATH}maven-3.5.4-bin.tar.gz -C /usr/lib
+
+    echo 'export JAVA_HOME=/usr/lib/jdk1.8.0_192' | tee /etc/profile.d/jdk8.sh
+    echo 'export JRE_HOME=${JAVA_HOME}/jre' | tee -a /etc/profile.d/jdk8.sh
+    echo 'export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib' | tee -a /etc/profile.d/jdk8.sh
+    echo 'export PATH=${JAVA_HOME}/bin:$PATH' | tee -a /etc/profile.d/jdk8.sh
+
+    echo 'export MAVEN_HOME=/usr/lib/apache-maven-3.5.4' | tee  /etc/profile.d/maven.sh
+    echo 'export PATH=${MAVEN_HOME}/bin:$PATH' | tee -a /etc/profile.d/maven.sh
+
+    source /etc/profile
+
+    echo -e "----------------------------------------------------"
+    colorEcho ${GREEN} "JDK版本为: `java -version`"
+    colorEcho ${GREEN} "Maven版本为: `mvn --version`"
     echo -e "----------------------------------------------------"
     
     if [[ -d ${BUILD_PATH} ]]; then
@@ -57,8 +97,11 @@ installHalo(){
         echo -e "----------------------------------------------------"
         mkdir -p ${HALO_PATH}
         cp -R target/dist/halo ${WWW_PATH}
-        touch /etc/systemd/system/halo.service
-    cat > /etc/systemd/system/halo.service << EOF
+
+        ### 检测系统是否支持systemd
+        if [[ -n `command -v systemctl` ]];then
+            touch /etc/systemd/system/halo.service
+            cat > /etc/systemd/system/halo.service << EOF
 [Unit]
 Description=halo
 After=network.target
@@ -66,7 +109,7 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/java -server -Xms256m -Xmx512m -jar /www/wwwroot/halo/halo-latest.jar
+ExecStart=java -server -Xms256m -Xmx512m -jar /www/wwwroot/halo/halo-latest.jar
 ExecStop=/bin/kill -s QUIT $MAINPID
 Restart=always
 StandOutput=syslog
@@ -76,7 +119,41 @@ StandError=inherit
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl daemon-reload
+
+            systemctl daemon-reload
+
+            if [[ -d ${HALO_PATH} ]]; then
+                configHalo
+                echo -e "----------------------------------------------------"
+                colorEcho ${GREEN} "Halo安装成功"
+                colorEcho ${GREEN} "使用systemctl start halo启动"
+                colorEcho ${GREEN} "使用systemctl enable halo将Halo加入开机启动"
+                echo -e "----------------------------------------------------"
+            else 
+                echo -e "----------------------------------------------------"
+                colorEcho ${RED} "貌似安装出错了,请手动检测安装目录${HALO_PATH}是否存在Halo"
+                echo -e "----------------------------------------------------"
+                exit 1
+            fi
+        
+
+        fi
+
+
+        if [[ -d ${HALO_PATH} ]]; then
+            configHalo
+            echo -e "----------------------------------------------------"
+            colorEcho ${GREEN} "Halo安装成功"
+            colorEcho ${GREEN} "由于未找到systemctl命令所以判定为不支持systemd"
+            colorEcho ${GREEN} "使用\"sh /www/wwwroot/halo/bin/halo.sh start\"运行halo"
+            echo -e "----------------------------------------------------"
+        else 
+            echo -e "----------------------------------------------------"
+            colorEcho ${RED} "貌似安装出错了,请手动检测安装目录${HALO_PATH}是否存在Halo"
+            echo -e "----------------------------------------------------"
+            exit 1
+        fi
+        
     else
         echo -e "----------------------------------------------------"
         colorEcho ${RED} "打包失败"
@@ -84,19 +161,7 @@ EOF
         exit 1
     fi
 
-    if [[ -d ${HALO_PATH} ]]; then
-        configHalo
-        echo -e "----------------------------------------------------"
-        colorEcho ${GREEN} "Halo安装成功"
-        colorEcho ${GREEN} "使用systemctl start halo启动"
-        colorEcho ${GREEN} "使用systemctl enable halo将Halo加入开机启动"
-        echo -e "----------------------------------------------------"
-    else 
-        echo -e "----------------------------------------------------"
-        colorEcho ${RED} "貌似安装出错了,请手动检测安装目录${HALO_PATH}是否存在Halo"
-        echo -e "----------------------------------------------------"
-        exit 1
-    fi
+
 }
 
 updateHalo(){
@@ -111,7 +176,7 @@ updateHalo(){
             cp ${HALO_PATH}resources/application.yaml ${HALO_PATH}resources/application.yaml.bak
             cp -R target/dist/halo ${WWW_PATH}
             cp ${HALO_PATH}resources/application.yaml.bak ${HALO_PATH}resources/application.yaml
-            colorEcho ${GREEN} "使用systemctl restart halo重启"
+            colorEcho ${GREEN} "使用手动重启halo"
             echo -e "----------------------------------------------------"
         else
             echo -e "----------------------------------------------------"
@@ -131,7 +196,7 @@ configHalo() {
     echo -e "\n"
     echo -e "----------------------------------------------------"
     colorEcho ${BLUE} '接下来将进行Halo的一些配置'
-    colorEcho ${BLUE}  "Halo支持两种数据库类型："
+    colorEcho ${BLUE}  "Halo支持两种数据库类型(默认h2,无特殊需求默认即可)："
     colorEcho ${GREEN} '1):h2'
     colorEcho ${GREEN} '2):mysql/mariadb'
     echo -e "----------------------------------------------------"
@@ -174,85 +239,18 @@ configHalo() {
 }
     
 
-installNginx(){
-    ### 编译安装nginx ###
-
-    colorEcho ${BLUE} "正在安装nginx所需依赖"
-    yum install -y -q gcc gcc-c++ autoconf automake git wget 
-    yum install -y -q zlib zlib-devel openssl openssl-devel pcre pcre-devel
-
-    groupadd -r nginx      # 创建nginx用户组
-    useradd -s /sbin/nologin -g nginx -r nginx    # 创建nginx用户
-
-    cd ${WORK_PATH}
-     colorEcho ${BLUE} "正在下载nginx源码包"
-    wget -O nginx.tar.gz -q http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-    tar zxf nginx.tar.gz 
-
-    colorEcho ${BLUE} "正在克隆echo-nginx-module"
-    git clone https://github.com/openresty/echo-nginx-module.git         # 克隆echo-nginx-module
-
-
-    cd nginx-${NGINX_VERSION}
-
-    ./configure --prefix=${NGINX_PATH} \
-     --user=nginx \
-     --group=nginx \
-     --with-http_ssl_module \
-     --with-http_v2_module \
-     --add-module=../echo-nginx-module
-    
-    process=`grep -c ^processor /proc/cpuinfo`
-    colorEcho ${BLUE} "检测到${process}个CPU线程,将开始编译"
-    make -j${process}
-
-    make install 
-
-    if [[ -d ${NGINX_PATH} ]]; then 
-        ln -sf ${NGINX_PATH}sbin/nginx /usr/sbin/nginx
-        colorEcho ${GREEN} "nginx安装成功"
-    touch /etc/systemd/system/nginx.service
-    cat > /etc/systemd/system/nginx.service <<EOF 
-[Unit]
-Description=The NGINX HTTP and reverse proxy server
-After=syslog.target network.target remote-fs.target nss-lookup.target
-
-[Service]
-Type=forking
-PIDFile=/run/nginx.pid
-ExecStartPre=/usr/sbin/nginx -t
-ExecStart=/usr/sbin/nginx
-ExecReload=/usr/sbin/nginx -s reload
-ExecStop=/bin/kill -s QUIT $MAINPID
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl daemon-reload
-    colorEcho ${GREEN} "请运行systemctl start nginx 或 nginx启动nginx"
-    else
-        colorEcho ${RED} "nginx安装失败"
-    fi
-
-}
-
 if [[ $# == 1 ]]; then
     case $1 in 
-        1)
-    installHalo
+        -i|--install)
+            installHalo
     ;;
-        2)
-    updateHalo
-    ;;
-        
-        3)
-    installNginx
+        -u|--update)
+            updateHalo
     ;;
         *)
-    useage
+            useage
     ;;
-esac
+    esac
 else 
     useage
 fi
