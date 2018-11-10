@@ -102,7 +102,7 @@ installHalo(){
     installGit
     checkJavaEnv 
 
-    if [[ ! hasJavaEnv == false ]];then
+    if [[ hasJavaEnv == false ]];then
         configJavaEnv
     fi
 
@@ -231,7 +231,7 @@ configHalo() {
     colorEcho ${GREEN} '2):mysql/mariadb'
     echo -e "----------------------------------------------------"
     read -p '请选择数据库编号:' database
-    if [[ $database == "2" ]]; then 
+    if [[ ${database} == "2" ]]; then 
         colorEcho ${YELLOW} "选择mysql/mariadb需要自行安装mysql/mariadb"
         colorEcho ${YELLOW} "并建立名为halodb的数据库"
     fi
@@ -242,8 +242,11 @@ configHalo() {
     read -p '数据库的密码：' -s password
     echo -e "\n"
     read -p 'Halo要使用的端口(默认8090)：' port
+    if [[ ! -n ${port} ]];then
+        port=8090
+    fi
     colorEcho ${GREEN} "Halo的端口为：${port}"
-
+    colorEcho ${BLUE} "之后可在halo的配置文件中进一步配置"
 
     case $database in
         1)
