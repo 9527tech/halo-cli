@@ -59,7 +59,7 @@ installHalo(){
     fi
 
     wget -O ${WORK_PATH}jdk1.8.0_192.tar.gz https://download.java.net/java/jdk8u192/archive/b04/binaries/jdk-8u192-ea-bin-b04-linux-x64-01_aug_2018.tar.gz
-    wget -O ${WORK_PATH}maven-3.5.4-bin.tar.gz https://www-us.apache.org/dist/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
+    wget -O ${WORK_PATH}maven-3.5.4-bin.tar.gz https://mirrors.tuna.tsinghua.edu.cn/apache/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
 
     colorEcho ${BLUE} "解压中------"
     tar zxf ${WORK_PATH}jdk1.8.0_192.tar.gz -C /usr/lib
