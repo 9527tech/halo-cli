@@ -102,7 +102,7 @@ installHalo(){
     installGit
     checkJavaEnv 
 
-    if [[ hasJavaEnv == false ]];then
+    if [[ ${hasJavaEnv} == false ]];then
         configJavaEnv
     fi
 
