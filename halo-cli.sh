@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
+export LANG=zh_CN.UTF-8
 
 WORK_PATH=~/works/                      # 工作目录
 BUILD_PATH="${WORK_PATH}git/halo/"      # halo打包目录
@@ -9,6 +10,7 @@ HALO_CONFIG="${HALO_PATH}resources/application.yaml"
 
 database=1
 port=8090
+
 
 ####### 颜色代码 ########
 RED="31m"      # Error message
@@ -45,10 +47,22 @@ installGit(){
     ${CMD_UPDATE} && ${CMD_INSTALL} git
 }
 
-installHalo(){
-    ### 安装halo ###
+checkJavaEnv(){
 
-    installGit
+    if [[ -n `command -v java` && -n `command -v mvn` ]];then
+        echo -e "----------------------------------------------------"
+        colorEcho ${BLUE} "发现系统中存在java和maven"
+        colorEcho ${GREEN} "JDK版本为: `java -version`"
+        colorEcho ${GREEN} "Maven版本为: `mvn --version`"
+        echo -e "----------------------------------------------------"
+        hasJavaEnv=true
+    else
+        hasJavaEnv=false
+    fi
+
+}
+
+configJavaEnv(){
 
     echo -e "----------------------------------------------------"
     colorEcho ${BLUE} "将通过下载官方二进制包的形式安装OpenJDK和Maven"
@@ -59,18 +73,18 @@ installHalo(){
     fi
 
     wget -O ${WORK_PATH}jdk1.8.0_192.tar.gz https://download.java.net/java/jdk8u192/archive/b04/binaries/jdk-8u192-ea-bin-b04-linux-x64-01_aug_2018.tar.gz
-    wget -O ${WORK_PATH}maven-3.5.4-bin.tar.gz https://mirrors.tuna.tsinghua.edu.cn/apache/maven/maven-3/3.5.4/binaries/apache-maven-3.5.4-bin.tar.gz
+    wget -O ${WORK_PATH}maven-3.6.0-bin.tar.gz https://mirrors.tuna.tsinghua.edu.cn/apache/maven/maven-3/3.6.0/binaries/apache-maven-3.6.0-bin.tar.gz
 
     colorEcho ${BLUE} "解压中------"
     tar zxf ${WORK_PATH}jdk1.8.0_192.tar.gz -C /usr/lib
-    tar zxf ${WORK_PATH}maven-3.5.4-bin.tar.gz -C /usr/lib
+    tar zxf ${WORK_PATH}maven-3.6.0-bin.tar.gz -C /usr/lib
 
     echo 'export JAVA_HOME=/usr/lib/jdk1.8.0_192' | tee /etc/profile.d/jdk8.sh
     echo 'export JRE_HOME=${JAVA_HOME}/jre' | tee -a /etc/profile.d/jdk8.sh
     echo 'export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib' | tee -a /etc/profile.d/jdk8.sh
     echo 'export PATH=${JAVA_HOME}/bin:$PATH' | tee -a /etc/profile.d/jdk8.sh
 
-    echo 'export MAVEN_HOME=/usr/lib/apache-maven-3.5.4' | tee  /etc/profile.d/maven.sh
+    echo 'export MAVEN_HOME=/usr/lib/apache-maven-3.6.0' | tee  /etc/profile.d/maven.sh
     echo 'export PATH=${MAVEN_HOME}/bin:$PATH' | tee -a /etc/profile.d/maven.sh
 
     source /etc/profile
@@ -79,6 +93,22 @@ installHalo(){
     colorEcho ${GREEN} "JDK版本为: `java -version`"
     colorEcho ${GREEN} "Maven版本为: `mvn --version`"
     echo -e "----------------------------------------------------"
+
+}
+
+installHalo(){
+    ### 安装halo ###
+
+    installGit
+    checkJavaEnv 
+
+    if [[ ${hasJavaEnv} == false ]];then
+        configJavaEnv
+    fi
+
+    if [[ ! -d $WORK_PATH ]];then
+        mkdir ${WORK_PATH}
+    fi
     
     if [[ -d ${BUILD_PATH} ]]; then
         rm -rf ${BUILD_PATH}
@@ -201,7 +231,7 @@ configHalo() {
     colorEcho ${GREEN} '2):mysql/mariadb'
     echo -e "----------------------------------------------------"
     read -p '请选择数据库编号:' database
-    if [[ $database == "2" ]]; then 
+    if [[ ${database} == "2" ]]; then 
         colorEcho ${YELLOW} "选择mysql/mariadb需要自行安装mysql/mariadb"
         colorEcho ${YELLOW} "并建立名为halodb的数据库"
     fi
@@ -212,12 +242,15 @@ configHalo() {
     read -p '数据库的密码：' -s password
     echo -e "\n"
     read -p 'Halo要使用的端口(默认8090)：' port
+    if [[ ! -n ${port} ]];then
+        port=8090
+    fi
     colorEcho ${GREEN} "Halo的端口为：${port}"
-
+    colorEcho ${BLUE} "之后可在halo的配置文件中进一步配置"
 
     case $database in
         1)
-            sed -i '2s/8090/'$port'/' ${HALO_CONFIG}
+            sed -i '2s/8090/'${port}'/' ${HALO_CONFIG}
             sed -i "16s/admin/${username}/" ${HALO_CONFIG}
             sed -i "17s/123456/${password}/" ${HALO_CONFIG}
         ;;
@@ -225,7 +258,7 @@ configHalo() {
             echo          
             sed -i '14,17s/^[^#]/#&/' ${HALO_CONFIG}
             sed -i '20,23s/^#\(\)/\1/' ${HALO_CONFIG}
-            sed -i '2s/8090/'$port'/' ${HALO_CONFIG}
+            sed -i '2s/8090/'${port}'/' ${HALO_CONFIG}
             sed -i "22s/root/${username}/" ${HALO_CONFIG}
             sed -i "23s/123456/${password}/" ${HALO_CONFIG}
         ;;
