@@ -195,6 +195,7 @@ EOF
 }
 
 updateHalo(){
+    source /etc/profile
     if [[ -d ${HALO_PATH} ]]; then 
         cd ${BUILD_PATH}
         git pull
